@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+**/.DS_Store
+._*
+
+# Python
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/
