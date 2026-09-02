@@ -535,6 +535,68 @@ The heatmap quantifies the exact effect of PCA on each model-metric combination.
 \textbf{Inference:}
 The standard deviation comparison reveals that PCA produced more stable predictions (lower variance) for Na\"ive Bayes and XGBoost, while slightly increasing variance for KNN, Decision Tree, and Gradient Boosting. Logistic Regression and Random Forest showed no meaningful change in stability, indicating that their performance consistency is independent of the feature space dimensionality.
 
+\subsection{Statistical Significance Testing}
+
+To rigorously assess whether the observed performance differences between the No-PCA and With-PCA settings are statistically significant (rather than attributable to random variation across folds), two paired statistical tests were applied to the 5-fold cross-validation accuracy scores for each model.
+
+\textbf{Test 1 --- Paired t-test.}
+The paired t-test evaluates whether the mean difference between two sets of paired observations is significantly different from zero. Given fold-wise accuracy scores $\{a_i^{\text{NP}}\}_{i=1}^{5}$ (No-PCA) and $\{a_i^{\text{WP}}\}_{i=1}^{5}$ (With-PCA), the differences $d_i = a_i^{\text{NP}} - a_i^{\text{WP}}$ are computed. The test statistic is:
+\begin{equation}
+t = \frac{\bar{d}}{s_d / \sqrt{n}}, \quad \text{where } \bar{d} = \frac{1}{n}\sum_{i=1}^{n} d_i, \quad s_d = \sqrt{\frac{1}{n-1}\sum_{i=1}^{n}(d_i - \bar{d})^2}
+\end{equation}
+Under $H_0: \mu_d = 0$, $t$ follows a Student's $t$-distribution with $n - 1 = 4$ degrees of freedom. This test assumes that the differences $d_i$ are approximately normally distributed.
+
+\textbf{Test 2 --- Wilcoxon Signed-Rank Test.}
+As a non-parametric alternative that does not assume normality (important given $n = 5$), the Wilcoxon signed-rank test is also applied. It ranks the absolute differences $|d_i|$, then computes the test statistic $W$ as the smaller of the sum of positive ranks and negative ranks:
+\begin{equation}
+W = \min\!\left(\sum_{d_i > 0} R_i, \;\sum_{d_i < 0} R_i\right)
+\end{equation}
+where $R_i$ is the rank of $|d_i|$ among all non-zero absolute differences. Under $H_0$, $W$ follows a known distribution for small $n$.
+
+\textbf{Hypotheses and Significance Level:}
+\begin{itemize}
+    \item $H_0$: There is no significant difference in CV accuracy between No-PCA and With-PCA ($\mu_d = 0$).
+    \item $H_1$: There is a significant difference ($\mu_d \neq 0$).
+    \item Significance level: $\alpha = 0.05$.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Statistical Significance Testing — Paired t-test \& Wilcoxon Signed-Rank Test}
+\label{tab:stat_sig}
+\vspace{0.2cm}
+\small
+\begin{tabular}{l|cc|c|cc|cc|c}
+\toprule
+\textbf{Model} & \textbf{Mean} & \textbf{Mean} & \textbf{$\Delta$} & \textbf{$t$-stat} & \textbf{$p$ (t-test)} & \textbf{$W$-stat} & \textbf{$p$ (Wilcoxon)} & \textbf{Sig.?} \\
+ & \textbf{(NP)} & \textbf{(WP)} & & & & & & \textbf{($\alpha$=0.05)} \\
+\midrule
+SVM & .9758 & .9780 & +.0022 & $-$0.5345 & 0.6213 & 2.0 & 1.0000 & No \\
+Na\"ive Bayes & .9341 & .9165 & $-$.0176 & 1.7253 & 0.1596 & 2.5 & 0.2500 & No \\
+KNN & .9714 & .9648 & $-$.0066 & 1.5000 & 0.2080 & 0.0 & 0.5000 & No \\
+Log. Regression & .9824 & .9824 & .0000 & N/A & N/A & 0.0 & 1.0000 & No \\
+Decision Tree & .9319 & .9385 & +.0066 & $-$0.4657 & 0.6657 & 6.5 & 0.9375 & No \\
+Random Forest & .9626 & .9604 & $-$.0022 & 0.5345 & 0.6213 & 1.0 & 0.5000 & No \\
+AdaBoost & .9802 & .9714 & $-$.0088 & 0.9300 & 0.4050 & 2.0 & 0.7500 & No \\
+Grad. Boosting & .9736 & .9626 & $-$.0110 & 0.8771 & 0.4300 & 4.0 & 0.3750 & No \\
+XGBoost & .9714 & .9670 & $-$.0044 & 0.2933 & 0.7839 & 3.5 & 0.7500 & No \\
+Stacking & .9714 & .9758 & +.0044 & $-$1.0000 & 0.3739 & 1.0 & 0.5000 & No \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textit{Note: For Logistic Regression, the paired t-test yields N/A because the 5-fold CV accuracy scores are identical under both No-PCA and With-PCA settings, resulting in zero variance in the differences.}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\linewidth]{images/statistical_significance.png}
+\caption{Statistical Significance of PCA Impact — $p$-values from Paired t-test and Wilcoxon Signed-Rank Test (Red dashed line: $\alpha = 0.05$)}
+\label{fig:stat_sig}
+\end{figure}
+
+\textbf{Inference:}
+None of the 10 models show a statistically significant difference between No-PCA and With-PCA cross-validation accuracy at $\alpha = 0.05$. The closest to significance is Na\"ive Bayes ($t = 1.7253$, $p = 0.1596$), which had the largest absolute accuracy gap ($\Delta = -1.76$ percentage points), yet still does not cross the significance threshold. Logistic Regression yields identical fold scores under both settings, making the paired $t$-test undefined (N/A). All other models produce $p$-values well above 0.05, indicating that the observed differences are within the range of normal fold-to-fold variation. This outcome is expected given the low statistical power inherent to $n = 5$ paired observations --- small but real effects are unlikely to reach significance. The Wilcoxon signed-rank test corroborates the $t$-test results across all models. These findings confirm that while descriptive performance differences exist between the two feature spaces, none are large enough to be declared statistically significant with 5-fold cross-validation.
+
 \section{Discussion}
 
 \subsection{Observation Questions}
